@@ -1,6 +1,7 @@
 # Cambridge Dictionary (Python)
 
 A simple API for Cambridge Dictionary, built with FastAPI.
+Try It Online : https://cambridge-dictionary-diy.vercel.app/
 
 ## 🕹️ Manual
 
