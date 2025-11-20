@@ -1,0 +1,129 @@
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>cambridge dictionary</title>
+    <link
+      rel="icon"
+      href="https://em-content.zobj.net/source/apple/391/hammer_1f528.png"
+    />
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css"
+    />
+    <meta
+      name="description"
+      content="Made by 1strikerY."
+    />
+    <style>
+      @import url("https://fonts.googleapis.com/css2?family=Source+Code+Pro:ital,wght@0,200..900;1,200..900&display=swap");
+      * { font-family: "Source Code Pro", monospace; }
+    </style>
+    <script src="https://cdn.tailwindcss.com"></script>
+  </head>
+  <body class="p-5 bg-purple-50">
+    <div id="layout" class="w-full flex items-center justify-center">
+      <div id="leftPanel" class="w-full max-w-2xl">
+        <div class="text-center mb-6">
+          <h1 class="text-3xl font-bold">cambridge dictionary</h1>
+          <p>Made by 1strikerY.</p>
+        </div>
+        <div class="flex flex-col items-stretch gap-3">
+          <label class="text-left text-sm">Language</label>
+          <select name="lang" id="lang" class="bg-purple-100 rounded-lg px-3 py-2 text-lg" title="language">
+            <option value="en">English</option>
+            <option value="uk">English (UK)</option>
+            <option value="en-tw">English–Chinese (Traditional)</option>
+            <option value="en-cn">English–Chinese (Simplified)</option>
+          </select>
+          <label class="text-left text-sm">Word</label>
+          <input class="bg-purple-100 rounded-lg px-3 py-2 !text-black placeholder:text-black text-lg" type="text" name="word" id="word" title="word" placeholder="Enter a word" />
+          <button id="searchBtn" class="px-8 font-bold text-lg py-2 hover:drop-shadow-xl transition-[0.2s] rounded-lg bg-purple-200 hover:bg-purple-300 drop-shadow-md" type="button">Search</button>
+          <div id="status" class="text-sm"></div>
+        </div>
+      </div>
+      <div id="divider" class="hidden md:block w-1 bg-purple-200 cursor-col-resize"></div>
+      <div id="rightPanel" class="hidden md:block flex-1 text-left">
+        <div id="result" class="max-w-3xl mx-auto mt-2"></div>
+      </div>
+    </div>
+    <script>
+      const statusEl = document.getElementById('status');
+      const resultEl = document.getElementById('result');
+      const layoutEl = document.getElementById('layout');
+      const leftPanel = document.getElementById('leftPanel');
+      const rightPanel = document.getElementById('rightPanel');
+      const divider = document.getElementById('divider');
+      let twoPane = false;
+      function applyLayout() {
+        if (!twoPane) {
+          layoutEl.className = 'w-full flex items-center justify-center';
+          leftPanel.className = 'w-full max-w-2xl';
+          rightPanel.className = 'hidden';
+          divider.className = 'hidden';
+        } else {
+          layoutEl.className = 'w-full flex items-start gap-4';
+          leftPanel.className = 'bg-white rounded-xl shadow p-5 w-[30%] min-w-[260px]';
+          rightPanel.className = 'block flex-1 text-left';
+          divider.className = 'block w-1 bg-purple-200 cursor-col-resize';
+        }
+      }
+      applyLayout();
+      let resizing = false;
+      divider.addEventListener('mousedown', () => { if (twoPane) resizing = true; });
+      window.addEventListener('mouseup', () => { resizing = false; });
+      window.addEventListener('mousemove', (e) => {
+        if (!resizing || !twoPane) return;
+        const rect = layoutEl.getBoundingClientRect();
+        const total = rect.width;
+        const leftW = Math.min(Math.max(e.clientX - rect.left, 240), total - 320);
+        leftPanel.style.width = leftW + 'px';
+      });
+      function audioButton(u) {
+        if (!u) return '';
+        return `<button class="ml-2 px-2 py-1 bg-purple-100 rounded" onclick="new Audio('${u}').play()">Play</button>`
+      }
+      function render(data) {
+        const posChips = (data.pos || []).map(p => `<span class="inline-block bg-purple-100 text-purple-900 px-2 py-1 rounded mr-2 mb-2 text-sm">${p}</span>`).join('');
+        const prons = (data.pronunciation || []).map(p => `<div class="my-1 text-sm">${p.pos ? `<span class='font-semibold mr-2'>${p.pos}</span>`:''}<span class="mr-2">${p.lang || ''}</span><span class="mr-2">${p.pron || ''}</span>${audioButton(p.url)}</div>`).join('');
+        const defs = (data.definition || []).map(d => {
+          const levelBadge = d.level ? `<span class="inline-block bg-yellow-200 text-yellow-900 px-2 py-0.5 rounded mr-2 text-xs align-middle">${d.level}</span>` : '';
+          const trans = d.translation ? `<div class="text-green-700 mt-1">${d.translation}</div>` : '';
+          const exs = (d.example || []).map(e => `<li class="mb-1"><div>${e.text || ''}</div>${e.translation ? `<div class='text-gray-600'>${e.translation}</div>`:''}</li>`).join('');
+          return `<div class="p-4 bg-white rounded-lg shadow mb-4">
+            <div class="text-sm text-gray-600 mb-1">${d.pos || ''}</div>
+            <div class="text-base font-semibold">${levelBadge}${d.text || ''}</div>
+            ${trans}
+            ${exs ? `<ul class="mt-2 list-disc list-inside">${exs}</ul>`:''}
+          </div>`;
+        }).join('');
+        resultEl.innerHTML = `<div class="bg-white p-5 rounded-xl shadow">
+          <div class="text-3xl font-bold mb-2">${data.word || ''}</div>
+          <div class="mb-3">${posChips}</div>
+          <div class="mb-3">${prons}</div>
+          ${defs}
+        </div>`;
+      }
+      async function search() {
+        const lang = document.getElementById('lang').value;
+        const word = document.getElementById('word').value.trim() || 'work';
+        twoPane = true;
+        applyLayout();
+        statusEl.textContent = 'Loading...';
+        resultEl.innerHTML = '';
+        try {
+          const r = await fetch(`/api/dictionary/${lang}/${encodeURIComponent(word)}`);
+          if (!r.ok) {
+            statusEl.textContent = 'Not found';
+            return;
+          }
+          const data = await r.json();
+          statusEl.textContent = '';
+          render(data);
+        } catch(e) {
+          statusEl.textContent = 'Error';
+        }
+      }
+      document.getElementById('searchBtn').addEventListener('click', search);
+    </script>
+  </body>
+  </html>
