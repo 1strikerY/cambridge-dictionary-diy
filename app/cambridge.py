@@ -61,12 +61,22 @@ class CambridgeClient:
             language = "english-chinese-traditional"
         elif slug_language == "en-cn":
             language = "english-chinese-simplified"
+        elif slug_language == "cn-en":
+            language = "chinese-simplified-english"
+            nation = ""
         else:
             raise ValueError("Unsupported language")
         return language, nation
 
     def _build_url(self, language: str, nation: str, entry: str) -> str:
-        return f"https://dictionary.cambridge.org/{nation}/dictionary/{language}/{entry}"
+        from urllib.parse import quote
+        safe_entry = quote(entry.strip(), safe="-._~")
+        base = "https://dictionary.cambridge.org"
+        if nation:
+            path = f"/{nation}/dictionary/{language}/{safe_entry}"
+        else:
+            path = f"/dictionary/{language}/{safe_entry}"
+        return base + path
 
     def _fetch(self, url: str) -> Optional[str]:
         key = self.cache.make_key(url)
@@ -76,6 +86,10 @@ class CambridgeClient:
         try:
             r = self.session.get(url, timeout=self.timeout)
             if r.status_code != 200:
+                try:
+                    print("FETCH_STATUS", r.status_code, r.url)
+                except Exception:
+                    pass
                 return None
             self.cache.set(key, r.text)
             return r.text
@@ -88,8 +102,6 @@ class CambridgeClient:
 
         word_el = soup.select_one(".hw.dhw")
         word = word_el.get_text(strip=True) if word_el else ""
-        if not word:
-            return {}
 
         pos_elements = soup.select(".pos.dpos")
         pos = list(dict.fromkeys([el.get_text(strip=True) for el in pos_elements]))
@@ -110,7 +122,8 @@ class CambridgeClient:
                     )
 
         definitions: List[Definition] = []
-        for i, block in enumerate(soup.select(".def-block.ddef_block")):
+        blocks = soup.select(".def-block.ddef_block")
+        for i, block in enumerate(blocks):
             entry_el = block.find_parent(class_="entry-body__el")
             pos_text = ""
             if entry_el:
@@ -157,6 +170,46 @@ class CambridgeClient:
                     example=examples,
                 )
             )
+
+        # Fallbacks for Chinese→English pages where structure differs
+        if not word:
+            try:
+                # title like "你好 in English - Cambridge Dictionary"
+                title_txt = soup.title.get_text(strip=True) if soup.title else ""
+                if " in English" in title_txt:
+                    word = title_txt.split(" in English")[0]
+            except Exception:
+                pass
+        if not word:
+            word = source_hint or ""
+
+        if not blocks:
+            try:
+                dict_el = soup.select_one(".dictionary")
+                source = dict_el.get("data-id", "") if dict_el else (source_hint or "")
+            except Exception:
+                source = source_hint or ""
+            defs = soup.select(".def.ddef_d")
+            for i, def_el in enumerate(defs):
+                text = def_el.get_text(" ", strip=True)
+                trans_el = def_el.find_next("span", class_="trans dtrans")
+                translation = trans_el.get_text(" ", strip=True) if trans_el else ""
+                definitions.append(
+                    Definition(id=i, pos="", source=source, text=text, translation=translation, level="", example=[])
+                )
+
+        if not pronunciation:
+            for pnode in soup.select(".dpron"):
+                pron_text = pnode.get_text(strip=True)
+                par = pnode.parent
+                reg_el = par.select_one(".region.dreg") if par else None
+                lang = reg_el.get_text(strip=True) if reg_el else ""
+                audio_src_el = par.select_one("audio source") if par else None
+                audio_src = audio_src_el.get("src", "").strip() if audio_src_el and audio_src_el.has_attr("src") else ""
+                if pron_text or audio_src:
+                    pronunciation.append(
+                        Pronunciation(pos="", lang=lang, url=("https://dictionary.cambridge.org" + audio_src) if audio_src else "", pron=pron_text)
+                    )
 
         return {
             "word": word,
@@ -211,6 +264,20 @@ class CambridgeClient:
         return verbs
 
     def get_entry(self, slug_language: str, entry: str) -> Optional[Dict[str, Any]]:
+        try:
+            print("GET_ENTRY_LANG", slug_language)
+        except Exception:
+            pass
+        if slug_language == "cn-en":
+            try:
+                print("CN_EN_AGGREGATE", entry)
+            except Exception:
+                pass
+            agg = self._get_cn_en_aggregate(entry)
+            if not agg:
+                return None
+            agg["verbs"] = []
+            return agg
         language, nation = self._language_mapping(slug_language)
         url = self._build_url(language, nation, entry)
         html = self._fetch(url)
@@ -221,3 +288,66 @@ class CambridgeClient:
             return None
         parsed["verbs"] = self.fetch_verbs(entry)
         return parsed
+
+    def _get_cn_en_aggregate(self, entry: str) -> Optional[Dict[str, Any]]:
+        language, nation = self._language_mapping("cn-en")
+        url = self._build_url(language, nation, entry)
+        html = self._fetch(url)
+        if not html:
+            return None
+        soup = BeautifulSoup(html, "html.parser")
+        links = []
+        for a in soup.select("a[href]"):
+            href = a.get("href", "")
+            if "/dictionary/english-chinese-simplified/" in href:
+                links.append(href)
+        if not links:
+            return None
+        siteurl = "https://dictionary.cambridge.org"
+        pos_set: List[str] = []
+        prons: List[Dict[str, Any]] = []
+        defs: List[Dict[str, Any]] = []
+        order: List[str] = []
+        for href in links[:12]:
+            sub_url = siteurl + href
+            sub_html = self._fetch(sub_url)
+            if not sub_html:
+                continue
+            parsed = self._parse_entry(sub_html, source_hint="en-cn")
+            if not parsed:
+                continue
+            lemma = parsed.get("word", "")
+            for p in parsed.get("pos", []):
+                if p not in pos_set:
+                    pos_set.append(p)
+            for p in parsed.get("pronunciation", []):
+                prons.append({
+                    "pos": p.get("pos", ""),
+                    "lang": p.get("lang", ""),
+                    "url": p.get("url", ""),
+                    "pron": p.get("pron", ""),
+                    "lemma": lemma,
+                })
+            for d in parsed.get("definition", []):
+                nd = {
+                    "id": d.get("id", 0),
+                    "pos": d.get("pos", ""),
+                    "source": d.get("source", ""),
+                    "text": d.get("text", ""),
+                    "translation": d.get("translation", ""),
+                    "level": d.get("level", ""),
+                    "example": d.get("example", []),
+                    "lemma": lemma,
+                }
+                defs.append(nd)
+            if lemma and lemma not in order:
+                order.append(lemma)
+        if not defs and not prons and not pos_set:
+            return None
+        return {
+            "word": entry,
+            "pos": pos_set,
+            "pronunciation": prons,
+            "definition": defs,
+            "order": order,
+        }

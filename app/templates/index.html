@@ -1,11 +1,10 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <title>cambridge dictionary</title>
-    <link
-      rel="icon"
-      href="https://em-content.zobj.net/source/apple/391/hammer_1f528.png"
-    />
+    <title>Cambridge Dictionary</title>
+    <link rel="icon" type="image/svg+xml" href="/static/favicon.svg" />
+    <link rel="icon" type="image/png" sizes="32x32" href="/static/logo.png" />
+    <link rel="icon" type="image/png" sizes="16x16" href="/static/logo.png" />
     <link
       rel="stylesheet"
       href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css"
@@ -23,17 +22,16 @@
   <body class="p-5 bg-purple-50">
     <div id="layout" class="w-full flex items-center justify-center">
       <div id="leftPanel" class="w-full max-w-2xl">
-        <div class="text-center mb-6">
-          <h1 class="text-3xl font-bold">cambridge dictionary</h1>
+        <div class="text-center mb-6 flex flex-col items-center gap-2">
+          <img src="/static/logo.png" alt="Cambridge Dictionary" class="h-12 object-contain" onerror="this.src='/static/favicon.svg'" />
+          <h1 class="text-3xl font-bold">Cambridge Dictionary</h1>
           <p>Made by 1strikerY.</p>
         </div>
         <div class="flex flex-col items-stretch gap-3">
           <label class="text-left text-sm">Language</label>
           <select name="lang" id="lang" class="bg-purple-100 rounded-lg px-3 py-2 text-lg" title="language">
-            <option value="en">English</option>
-            <option value="uk">English (UK)</option>
-            <option value="en-tw">English–Chinese (Traditional)</option>
-            <option value="en-cn">English–Chinese (Simplified)</option>
+            <option value="en-cn" selected>English–Chinese (Simplified)</option>
+            <option value="cn-en">Chinese (Simplified)–English</option>
           </select>
           <label class="text-left text-sm">Word</label>
           <input class="bg-purple-100 rounded-lg px-3 py-2 !text-black placeholder:text-black text-lg" type="text" name="word" id="word" title="word" placeholder="Enter a word" />
@@ -103,6 +101,50 @@
           ${defs}
         </div>`;
       }
+      function renderCnEn(data) {
+        const groups = {};
+        (data.definition || []).forEach(d => {
+          const k = d.lemma || '';
+          if (!groups[k]) groups[k] = { lemma: k, defs: [], prons: [] };
+          groups[k].defs.push(d);
+        });
+        (data.pronunciation || []).forEach(p => {
+          const k = p.lemma || '';
+          if (!groups[k]) groups[k] = { lemma: k, defs: [], prons: [] };
+          groups[k].prons.push(p);
+        });
+        const orderLemmas = (data.order || []).filter(k => k in groups).map(k => groups[k]);
+        const appended = Object.keys(groups)
+          .filter(k => !(data.order || []).includes(k))
+          .map(k => groups[k]);
+        const seq = (orderLemmas.length ? orderLemmas : appended);
+        const blocks = seq.map(g => {
+          const pronHtml = (g.prons || []).map(p => `<span class="inline-flex items-center text-sm mr-3">${p.lang || ''} <span class="ml-2">${p.pron || ''}</span>${audioButton(p.url)}</span>`).join('');
+          const defs = (g.defs || []).map(d => {
+            const levelBadge = d.level ? `<span class="inline-block bg-yellow-200 text-yellow-900 px-2 py-0.5 rounded mr-2 text-xs align-middle">${d.level}</span>` : '';
+            const trans = d.translation ? `<div class="text-green-700 mt-1">${d.translation}</div>` : '';
+            const exs = (d.example || []).map(e => `<li class="mb-1"><div>${e.text || ''}</div>${e.translation ? `<div class='text-gray-600'>${e.translation}</div>`:''}</li>`).join('');
+            return `<div class="mt-2">
+              <div class="text-sm text-gray-600">${d.pos || ''}</div>
+              <div class="text-base">${levelBadge}${d.text || ''}</div>
+              ${trans}
+              ${exs ? `<ul class="mt-2 list-disc list-inside">${exs}</ul>`:''}
+            </div>`;
+          }).join('');
+          const head = g.lemma ? `<a href="https://dictionary.cambridge.org/dictionary/english-chinese-simplified/${encodeURIComponent(g.lemma)}" target="_blank" class="text-blue-700 font-semibold text-lg">${g.lemma}</a>` : `<span class="text-gray-700 font-semibold text-lg">others</span>`;
+          return `<div class="py-4 border-b border-yellow-300">
+            <div class="flex items-center gap-3">
+              ${head}
+              <div class="flex flex-wrap">${pronHtml}</div>
+            </div>
+            ${defs}
+          </div>`;
+        }).join('');
+        resultEl.innerHTML = `<div class="bg-white p-5 rounded-xl shadow">
+          <div class="text-3xl font-bold mb-4">${data.word || ''}</div>
+          ${blocks || '<div class="text-gray-600">No items</div>'}
+        </div>`;
+      }
       async function search() {
         const lang = document.getElementById('lang').value;
         const word = document.getElementById('word').value.trim() || 'work';
@@ -118,7 +160,11 @@
           }
           const data = await r.json();
           statusEl.textContent = '';
-          render(data);
+          if (lang === 'cn-en') {
+            renderCnEn(data);
+          } else {
+            render(data);
+          }
         } catch(e) {
           statusEl.textContent = 'Error';
         }
