@@ -330,7 +330,6 @@ def upsert_entry_with_senses(language_slug: str, entry: str, data: Dict[str, Any
         head_res = (
             client.table("dictionary_entries")
             .upsert(head_payload, on_conflict="language_slug,entry")
-            .select("id")
             .execute()
         )
         head_rows = getattr(head_res, "data", [])
@@ -343,8 +342,34 @@ def upsert_entry_with_senses(language_slug: str, entry: str, data: Dict[str, Any
         except Exception:
             pass
         if not head_rows:
-            return
-        entry_id = head_rows[0]["id"]
+            # SDK 不支持 upsert().select() 链式返回时，通过再次 select 获取 id
+            get_res = (
+                client.table("dictionary_entries")
+                .select("id")
+                .eq("language_slug", language_slug)
+                .eq("entry", entry)
+                .limit(1)
+                .execute()
+            )
+            get_rows = getattr(get_res, "data", [])
+            if not get_rows:
+                return
+            entry_id = get_rows[0]["id"]
+        else:
+            entry_id = head_rows[0].get("id") if isinstance(head_rows[0], dict) else None
+            if entry_id is None:
+                get_res = (
+                    client.table("dictionary_entries")
+                    .select("id")
+                    .eq("language_slug", language_slug)
+                    .eq("entry", entry)
+                    .limit(1)
+                    .execute()
+                )
+                get_rows = getattr(get_res, "data", [])
+                if not get_rows:
+                    return
+                entry_id = get_rows[0]["id"]
 
         senses_payload: List[Dict[str, Any]] = []
         for d in data.get("definition", []) or []:
@@ -360,10 +385,11 @@ def upsert_entry_with_senses(language_slug: str, entry: str, data: Dict[str, Any
                 }
             )
         if senses_payload:
-            res = client.table("dictionary_senses").upsert(
-                senses_payload,
-                on_conflict="entry_id,pos,original_content",
-            ).execute()
+            res = (
+                client.table("dictionary_senses")
+                .upsert(senses_payload, on_conflict="entry_id,pos,original_content")
+                .execute()
+            )
             try:
                 logger.info("UPSERT_SENSES_ROWS=%s", len(getattr(res, "data", []) or []))
             except Exception:
