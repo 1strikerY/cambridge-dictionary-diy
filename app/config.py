@@ -16,6 +16,8 @@ def load_ignore_config() -> dict:
                     continue
                 if "=" not in s:
                     continue
+                # remove BOM if present (affects first line only)
+                s = s.lstrip("\ufeff")
                 k, v = s.split("=", 1)
                 cfg[k.strip()] = v.strip()
         return cfg

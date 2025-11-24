@@ -2,6 +2,7 @@ from typing import Optional, Dict, Any, List
 import logging
 import requests
 
+import os
 from .db import get_supabase_client
 from .config import load_ignore_config
 
@@ -21,8 +22,8 @@ def get_entry_from_db(language_slug: str, entry: str) -> Optional[Dict[str, Any]
     client = get_supabase_client()
     if client is None:
         cfg = load_ignore_config()
-        base = cfg.get("SUPABASE_URL")
-        key = cfg.get("SUPABASE_KEY")
+        base = os.environ.get("SUPABASE_URL") or cfg.get("SUPABASE_URL")
+        key = os.environ.get("SUPABASE_KEY") or cfg.get("SUPABASE_KEY") or cfg.get("SUPABASE_KEY")
         if not base or not key:
             return None
         try:
@@ -162,8 +163,8 @@ def upsert_entry_with_senses(language_slug: str, entry: str, data: Dict[str, Any
     client = get_supabase_client()
     if client is None:
         cfg = load_ignore_config()
-        base = cfg.get("SUPABASE_URL")
-        key = cfg.get("SUPABASE_KEY")
+        base = os.environ.get("SUPABASE_URL") or cfg.get("SUPABASE_URL")
+        key = os.environ.get("SUPABASE_KEY") or cfg.get("SUPABASE_KEY") or cfg.get("SUPABASE_KEY")
         if not base or not key:
             return
         try:
