@@ -82,7 +82,7 @@ class CambridgeClient:
         except requests.RequestException:
             return None
 
-    def _parse_entry(self, html: str) -> Dict[str, Any]:
+    def _parse_entry(self, html: str, source_hint: Optional[str] = None) -> Dict[str, Any]:
         soup = BeautifulSoup(html, "html.parser")
         siteurl = "https://dictionary.cambridge.org"
 
@@ -119,9 +119,9 @@ class CambridgeClient:
             dict_el = block.find_parent(class_="dictionary")
             source = dict_el.get("data-id", "") if dict_el else ""
             text_el = block.select_one(".def.ddef_d.db")
-            text = text_el.get_text(strip=True) if text_el else ""
+            text = text_el.get_text(" ", strip=True) if text_el else ""
             trans_el = block.select_one(".def-body.ddef_b > span.trans.dtrans")
-            translation = trans_el.get_text(strip=True) if trans_el else ""
+            translation = trans_el.get_text(" ", strip=True) if trans_el else ""
             level = ""
             level_candidates = [
                 el.get_text(strip=True)
@@ -141,16 +141,16 @@ class CambridgeClient:
             examples: List[Example] = []
             for j, ex in enumerate(block.select(".def-body.ddef_b > .examp.dexamp")):
                 eg_el = ex.select_one(".eg.deg")
-                eg = eg_el.get_text(strip=True) if eg_el else ""
+                eg = eg_el.get_text(" ", strip=True) if eg_el else ""
                 tr_el = ex.select_one(".trans.dtrans")
-                tr = tr_el.get_text(strip=True) if tr_el else ""
+                tr = tr_el.get_text(" ", strip=True) if tr_el else ""
                 examples.append(Example(id=j, text=eg, translation=tr))
 
             definitions.append(
                 Definition(
                     id=i,
                     pos=pos_text,
-                    source=source,
+                    source=source if source else (source_hint or ""),
                     text=text,
                     translation=translation,
                     level=level,
@@ -216,7 +216,7 @@ class CambridgeClient:
         html = self._fetch(url)
         if not html:
             return None
-        parsed = self._parse_entry(html)
+        parsed = self._parse_entry(html, source_hint=slug_language)
         if not parsed:
             return None
         parsed["verbs"] = self.fetch_verbs(entry)

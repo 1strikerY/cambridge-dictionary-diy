@@ -3,3 +3,4 @@ uvicorn==0.30.6
 requests==2.32.3
 beautifulsoup4==4.12.3
 pytest==8.3.3
+supabase==2.5.0
