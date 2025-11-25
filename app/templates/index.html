@@ -95,7 +95,7 @@
         email: '',
         provider: ''
       };
-      function setToken(t){ authState.token=t||''; if(t){ localStorage.setItem('jwt_token', t);} else { localStorage.removeItem('jwt_token'); sessionStorage.removeItem('jwt_token');}}
+      function setToken(t){ authState.token=t||''; if(t){ localStorage.setItem('jwt_token', t); document.cookie = `jwt_token=${t}; path=/`; } else { localStorage.removeItem('jwt_token'); sessionStorage.removeItem('jwt_token'); document.cookie = 'jwt_token=; Max-Age=0; path=/'; }}
       async function renderHeader(){
         const el = document.getElementById('headerActions');
         if(!authState.token){

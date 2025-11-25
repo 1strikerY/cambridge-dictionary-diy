@@ -34,8 +34,8 @@
         const res = await api('/auth/login',{email,password});
         if(res.ok){
           const keep = document.getElementById('keep').checked;
-          if(keep){ localStorage.setItem('jwt_token', res.json.token); }
-          else { sessionStorage.setItem('jwt_token', res.json.token); }
+          if(keep){ localStorage.setItem('jwt_token', res.json.token); document.cookie = `jwt_token=${res.json.token}; path=/; Max-Age=${30*24*3600}`; }
+          else { sessionStorage.setItem('jwt_token', res.json.token); document.cookie = `jwt_token=${res.json.token}; path=/`; }
           window.location.href = '/';
         } else {
           if(res.status === 404){ s.textContent = '账号不存在'; }

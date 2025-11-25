@@ -105,7 +105,7 @@
         if(!code){ document.getElementById('err_code').textContent='Verification code is required'; invalid = true; }
         if(invalid) return;
         const res = await post('/auth/register',{email,password,name,code});
-        if(res.ok){ localStorage.setItem('jwt_token', res.json.token); window.location.href = '/'; }
+        if(res.ok){ localStorage.setItem('jwt_token', res.json.token); document.cookie = `jwt_token=${res.json.token}; path=/; Max-Age=${30*24*3600}`; window.location.href = '/'; }
         else { s.textContent = res.json.error || 'Sign up failed'; }
       });
     </script>
