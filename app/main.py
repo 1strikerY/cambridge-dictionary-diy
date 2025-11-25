@@ -169,6 +169,14 @@ def dictionary(request: Request, language: str, entry: str):
                                     email = data_jwt.get("email")
                                     user_id = data_jwt.get("sub")
                                     provider = data_jwt.get("provider")
+                            if not user_id:
+                                tok = request.cookies.get("jwt_token") or ""
+                                if tok:
+                                    data_jwt = decode_token(tok)
+                                    if data_jwt:
+                                        email = data_jwt.get("email")
+                                        user_id = data_jwt.get("sub")
+                                        provider = data_jwt.get("provider")
                             insert_page_visit(path=f"/api/dictionary/{language}/{norm_entry}", method="GET", email=email, user_id=user_id, provider=provider, ip=request.client.host if request.client else None, user_agent=request.headers.get("User-Agent"), action_type=f"translate({language})", action_content=norm_entry)
                         except Exception:
                             pass
@@ -188,6 +196,14 @@ def dictionary(request: Request, language: str, entry: str):
                                     email = data_jwt.get("email")
                                     user_id = data_jwt.get("sub")
                                     provider = data_jwt.get("provider")
+                            if not user_id:
+                                tok = request.cookies.get("jwt_token") or ""
+                                if tok:
+                                    data_jwt = decode_token(tok)
+                                    if data_jwt:
+                                        email = data_jwt.get("email")
+                                        user_id = data_jwt.get("sub")
+                                        provider = data_jwt.get("provider")
                             insert_page_visit(path=f"/api/dictionary/{language}/{norm_entry}", method="GET", email=email, user_id=user_id, provider=provider, ip=request.client.host if request.client else None, user_agent=request.headers.get("User-Agent"), action_type=f"translate({language})", action_content=norm_entry)
                         except Exception:
                             pass
@@ -206,6 +222,14 @@ def dictionary(request: Request, language: str, entry: str):
                                 email = data_jwt.get("email")
                                 user_id = data_jwt.get("sub")
                                 provider = data_jwt.get("provider")
+                        if not user_id:
+                            tok = request.cookies.get("jwt_token") or ""
+                            if tok:
+                                data_jwt = decode_token(tok)
+                                if data_jwt:
+                                    email = data_jwt.get("email")
+                                    user_id = data_jwt.get("sub")
+                                    provider = data_jwt.get("provider")
                         insert_page_visit(path=f"/api/dictionary/{language}/{norm_entry}", method="GET", email=email, user_id=user_id, provider=provider, ip=request.client.host if request.client else None, user_agent=request.headers.get("User-Agent"), action_type=f"translate({language})", action_content=norm_entry)
                     except Exception:
                         pass
@@ -225,6 +249,14 @@ def dictionary(request: Request, language: str, entry: str):
                         email = data_jwt.get("email")
                         user_id = data_jwt.get("sub")
                         provider = data_jwt.get("provider")
+                if not user_id:
+                    tok = request.cookies.get("jwt_token") or ""
+                    if tok:
+                        data_jwt = decode_token(tok)
+                        if data_jwt:
+                            email = data_jwt.get("email")
+                            user_id = data_jwt.get("sub")
+                            provider = data_jwt.get("provider")
                 insert_page_visit(path=f"/api/dictionary/{language}/{norm_entry}", method="GET", email=email, user_id=user_id, provider=provider, ip=request.client.host if request.client else None, user_agent=request.headers.get("User-Agent"), action_type=f"translate({language})", action_content=norm_entry)
             except Exception:
                 pass
