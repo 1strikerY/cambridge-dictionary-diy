@@ -20,6 +20,16 @@
     <script src="https://cdn.tailwindcss.com"></script>
   </head>
   <body class="p-5 bg-purple-50">
+    <div class="w-full flex items-center justify-between mb-4">
+      <div class="flex items-center gap-2">
+        <img src="/static/logo.png" alt="logo" class="h-8" onerror="this.src='/static/favicon.svg'" />
+        <span class="text-xl font-bold">Cambridge Dictionary</span>
+      </div>
+      <div id="headerActions" class="flex items-center gap-3">
+        <a href="/login" class="px-3 py-2 bg-teal-500 text-white rounded">Log in</a>
+        <a href="/signup" class="px-3 py-2 bg-blue-600 text-white rounded">Sign up</a>
+      </div>
+    </div>
     <div id="layout" class="w-full flex items-center justify-center">
       <div id="leftPanel" class="w-full max-w-2xl">
         <div class="text-center mb-6 flex flex-col items-center gap-2">
@@ -80,6 +90,29 @@
         if (!u) return '';
         return `<button class="ml-2 px-2 py-1 bg-purple-100 rounded" onclick="new Audio('${u}').play()">Play</button>`
       }
+      const authState = {
+        token: localStorage.getItem('jwt_token') || sessionStorage.getItem('jwt_token') || '',
+        email: '',
+        provider: ''
+      };
+      function setToken(t){ authState.token=t||''; if(t){ localStorage.setItem('jwt_token', t);} else { localStorage.removeItem('jwt_token'); sessionStorage.removeItem('jwt_token');}}
+      async function renderHeader(){
+        const el = document.getElementById('headerActions');
+        if(!authState.token){
+          el.innerHTML = '<a href="/login" class="px-3 py-2 bg-teal-500 text-white rounded">Log in</a><a href="/signup" class="px-3 py-2 bg-blue-600 text-white rounded">Sign up</a>';
+          return;
+        }
+        try{
+          const r = await fetch('/me',{headers:{Authorization:`Bearer ${authState.token}`}});
+          if(!r.ok){ setToken(''); el.innerHTML = '<a href="/login" class="px-3 py-2 bg-teal-500 text-white rounded">Log in</a><a href="/signup" class="px-3 py-2 bg-blue-600 text-white rounded">Sign up</a>'; return; }
+          const data = await r.json();
+          authState.email = (data.user && data.user.email) || '';
+          authState.provider = (data.user && data.user.provider) || '';
+          el.innerHTML = `<span class="px-3 py-2 bg-gray-200 rounded">${authState.email || 'User'}</span><button id="logoutBtn" class="px-3 py-2 bg-gray-800 text-white rounded">Log out</button>`;
+          document.getElementById('logoutBtn').addEventListener('click', ()=>{ setToken(''); location.reload(); });
+        }catch(e){ setToken(''); el.innerHTML = '<a href="/login" class="px-3 py-2 bg-teal-500 text-white rounded">Log in</a><a href="/signup" class="px-3 py-2 bg-blue-600 text-white rounded">Sign up</a>'; }
+      }
+      renderHeader();
       function render(data) {
         const posChips = (data.pos || []).map(p => `<span class="inline-block bg-purple-100 text-purple-900 px-2 py-1 rounded mr-2 mb-2 text-sm">${p}</span>`).join('');
         const prons = (data.pronunciation || []).map(p => `<div class="my-1 text-sm">${p.pos ? `<span class='font-semibold mr-2'>${p.pos}</span>`:''}<span class="mr-2">${p.lang || ''}</span><span class="mr-2">${p.pron || ''}</span>${audioButton(p.url)}</div>`).join('');
@@ -170,6 +203,8 @@
         }
       }
       document.getElementById('searchBtn').addEventListener('click', search);
+
+      // Auth modal removed; use dedicated pages /login and /signup
     </script>
   </body>
-  </html>
+</html>

@@ -1,0 +1,113 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Sign up</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+  </head>
+  <body class="p-6 bg-gray-50">
+    <div class="max-w-xl mx-auto bg-white rounded-xl shadow p-6">
+      <div class="mb-4 text-2xl font-semibold">Sign up</div>
+      <div class="grid gap-3">
+        <input id="email" class="border rounded px-3 py-2" placeholder="Email *" required />
+        <div id="err_email" class="text-sm text-red-600"></div>
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <input id="first" class="border rounded px-3 py-2" placeholder="First name *" required />
+            <div id="err_first" class="text-sm text-red-600"></div>
+          </div>
+          <div>
+            <input id="last" class="border rounded px-3 py-2" placeholder="Last name *" required />
+            <div id="err_last" class="text-sm text-red-600"></div>
+          </div>
+        </div>
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <input id="password" class="border rounded px-3 py-2" placeholder="Password *" type="password" required />
+            <div id="err_password" class="text-sm text-red-600"></div>
+          </div>
+          <div>
+            <input id="password2" class="border rounded px-3 py-2" placeholder="Confirm password *" type="password" required />
+            <div id="err_password2" class="text-sm text-red-600"></div>
+          </div>
+        </div>
+        <div class="grid grid-cols-[1fr_auto] gap-3">
+          <input id="code" class="border rounded px-3 py-2" placeholder="Verification code *" />
+          <button id="send" class="bg-indigo-500 text-white rounded px-3">Send code</button>
+        </div>
+        <div id="err_code" class="text-sm text-red-600"></div>
+        <label class="flex items-center gap-2 text-sm"><input id="agree" type="checkbox" required /> I agree to the Terms of Use and Privacy Notice *</label>
+        <div id="err_agree" class="text-sm text-red-600"></div>
+        <button id="signup" class="bg-blue-700 text-white rounded py-2">Sign up</button>
+        <div class="text-sm"><a href="/login" class="text-blue-700">Have an account already?</a></div>
+        <div class="text-center text-sm text-gray-600">or</div>
+        <a href="/auth/google/start" class="bg-red-500 text-white rounded py-2 text-center">Continue with Google</a>
+        <div id="status" class="text-sm text-gray-600"></div>
+      </div>
+    </div>
+    <script>
+      async function post(path, body){
+        const r = await fetch(path,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+        return {ok:r.ok,json:await r.json()};
+      }
+      function clearErrors(){
+        ['err_email','err_first','err_last','err_password','err_password2','err_agree','err_code'].forEach(id=>{
+          const el = document.getElementById(id); if(el) el.textContent='';
+        });
+      }
+      function clearFieldErrorOnChange(){
+        const map = {
+          email:'err_email', first:'err_first', last:'err_last', password:'err_password', password2:'err_password2', agree:'err_agree', code:'err_code'
+        };
+        Object.entries(map).forEach(([field,err])=>{
+          const el = document.getElementById(field);
+          el.addEventListener(el.type === 'checkbox' ? 'change' : 'input', ()=>{ document.getElementById(err).textContent=''; });
+        });
+      }
+      clearFieldErrorOnChange();
+      document.getElementById('send').addEventListener('click', async ()=>{
+        clearErrors();
+        const email = document.getElementById('email').value.trim().toLowerCase();
+        const agree = document.getElementById('agree').checked;
+        const s = document.getElementById('status');
+        let invalid = false;
+        const emailValid = /^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$/.test(email);
+        if(!email){ document.getElementById('err_email').textContent='Email is required'; invalid = true; }
+        else if(!emailValid){ document.getElementById('err_email').textContent='Invalid email'; invalid = true; }
+        if(!agree){ document.getElementById('err_agree').textContent='Please agree to the terms'; invalid = true; }
+        if(invalid) return;
+        const res = await post('/auth/send_code',{email});
+        if(res.ok){ s.textContent = res.json.sent? 'Code sent' : (res.json.dev_code? `Dev code: ${res.json.dev_code}` : 'Sent (check mailbox)'); }
+        else { s.textContent = res.json.error || 'Send failed'; }
+      });
+      document.getElementById('signup').addEventListener('click', async ()=>{
+        clearErrors();
+        const email = document.getElementById('email').value.trim().toLowerCase();
+        const first = document.getElementById('first').value.trim();
+        const last = document.getElementById('last').value.trim();
+        const name = [first,last].join(' ');
+        const password = document.getElementById('password').value;
+        const password2 = document.getElementById('password2').value;
+        const code = document.getElementById('code').value.trim();
+        const agree = document.getElementById('agree').checked;
+        const s = document.getElementById('status');
+        let invalid = false;
+        const emailValid = /^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$/.test(email);
+        if(!email){ document.getElementById('err_email').textContent='Email is required'; invalid = true; }
+        else if(!emailValid){ document.getElementById('err_email').textContent='Invalid email'; invalid = true; }
+        if(!first){ document.getElementById('err_first').textContent='First name is required'; invalid = true; }
+        if(!last){ document.getElementById('err_last').textContent='Last name is required'; invalid = true; }
+        if(!password){ document.getElementById('err_password').textContent='Password is required'; invalid = true; }
+        if(!password2){ document.getElementById('err_password2').textContent='Confirm password is required'; invalid = true; }
+        else if(password && password2 && password !== password2){ document.getElementById('err_password2').textContent='Passwords do not match'; invalid = true; }
+        if(!agree){ document.getElementById('err_agree').textContent='Please agree to the terms'; invalid = true; }
+        if(!code){ document.getElementById('err_code').textContent='Verification code is required'; invalid = true; }
+        if(invalid) return;
+        const res = await post('/auth/register',{email,password,name,code});
+        if(res.ok){ localStorage.setItem('jwt_token', res.json.token); window.location.href = '/'; }
+        else { s.textContent = res.json.error || 'Sign up failed'; }
+      });
+    </script>
+  </body>
+  </html>

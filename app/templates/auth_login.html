@@ -1,0 +1,48 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Log in</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+  </head>
+  <body class="p-6 bg-gray-50">
+    <div class="max-w-xl mx-auto bg-white rounded-xl shadow p-6">
+      <div class="mb-4 text-2xl font-semibold">Log in with your email account</div>
+      <div class="grid gap-3">
+        <input id="email" class="border rounded px-3 py-2" placeholder="Email *" required />
+        <input id="password" class="border rounded px-3 py-2" placeholder="Password *" type="password" required />
+        <label class="flex items-center gap-2 text-sm"><input id="keep" type="checkbox" /> Keep me logged in</label>
+        <button id="login" class="bg-blue-700 text-white rounded py-2">Log in</button>
+        <div class="text-sm"><a href="/signup" class="text-blue-700">Don't have an account yet?</a></div>
+        <div class="text-center text-sm text-gray-600">or</div>
+        <a href="/auth/google/start" class="bg-red-500 text-white rounded py-2 text-center">Continue with Google</a>
+        <div id="status" class="text-sm text-gray-600"></div>
+      </div>
+    </div>
+    <script>
+      async function api(path, body){
+        const r = await fetch(path,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+        return {ok:r.ok,status:r.status,json:await r.json()};
+      }
+      document.getElementById('login').addEventListener('click', async ()=>{
+        const email = document.getElementById('email').value.trim().toLowerCase();
+        const password = document.getElementById('password').value;
+        const s = document.getElementById('status');
+        if(!email){ s.textContent='Email is required'; return; }
+        if(!password){ s.textContent='Password is required'; return; }
+        const res = await api('/auth/login',{email,password});
+        if(res.ok){
+          const keep = document.getElementById('keep').checked;
+          if(keep){ localStorage.setItem('jwt_token', res.json.token); }
+          else { sessionStorage.setItem('jwt_token', res.json.token); }
+          window.location.href = '/';
+        } else {
+          if(res.status === 404){ s.textContent = '账号不存在'; }
+          else if(res.status === 400){ s.textContent = '密码错误'; }
+          else { s.textContent = res.json.error || '登录失败'; }
+        }
+      });
+    </script>
+  </body>
+  </html>
