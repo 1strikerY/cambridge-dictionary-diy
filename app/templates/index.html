@@ -18,6 +18,16 @@
       * { font-family: "Source Code Pro", monospace; }
     </style>
     <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+      (function(){
+        var host = location.hostname;
+        var prod = host !== 'localhost' && host !== '127.0.0.1';
+        if(prod){
+          window.va = window.va || function(){ (window.vaq = window.vaq || []).push(arguments); };
+          var s = document.createElement('script'); s.defer = true; s.src = '/_vercel/insights/script.js'; document.head.appendChild(s);
+        }
+      })();
+    </script>
   </head>
   <body class="p-5 bg-purple-50">
     <div class="w-full flex items-center justify-between mb-4">
@@ -202,6 +212,7 @@
             return;
           }
           const data = await r.json();
+          try{ if(window.va){ window.va('event', { name: 'search', data: { language: lang, word } }); } }catch(e){}
           statusEl.textContent = '';
           if (lang === 'cn-en') {
             renderCnEn(data);
@@ -249,6 +260,7 @@
             const rr = await fetch('/favorite', {method, headers:{'Content-Type':'application/json'}, body: JSON.stringify({language: lang, word})});
             if(rr.ok){
               const sFilled = !filled; btn.textContent = sFilled? '★':'☆'; btn.className = sFilled? 'ml-2 px-2 py-1 bg-yellow-300 text-yellow-900 rounded':'ml-2 px-2 py-1 bg-gray-100 rounded';
+              try{ if(window.va){ window.va('event', { name: sFilled ? 'favorite_add' : 'favorite_remove', data: { language: lang, word } }); } }catch(e){}
             }
           });
         }catch(e){ /* ignore */ }

@@ -5,6 +5,16 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Sign up</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+      (function(){
+        var host = location.hostname;
+        var prod = host !== 'localhost' && host !== '127.0.0.1';
+        if(prod){
+          window.va = window.va || function(){ (window.vaq = window.vaq || []).push(arguments); };
+          var s = document.createElement('script'); s.defer = true; s.src = '/_vercel/insights/script.js'; document.head.appendChild(s);
+        }
+      })();
+    </script>
   </head>
   <body class="p-6 bg-gray-50">
     <div class="max-w-xl mx-auto bg-white rounded-xl shadow p-6">
@@ -105,7 +115,7 @@
         if(!code){ document.getElementById('err_code').textContent='Verification code is required'; invalid = true; }
         if(invalid) return;
         const res = await post('/auth/register',{email,password,name,code});
-        if(res.ok){ localStorage.setItem('jwt_token', res.json.token); document.cookie = `jwt_token=${res.json.token}; path=/; Max-Age=${30*24*3600}`; window.location.href = '/'; }
+        if(res.ok){ localStorage.setItem('jwt_token', res.json.token); document.cookie = `jwt_token=${res.json.token}; path=/; Max-Age=${30*24*3600}`; try{ if(window.va){ window.va('event', { name: 'register', data: { provider: 'email' } }); } }catch(e){} window.location.href = '/'; }
         else { s.textContent = res.json.error || 'Sign up failed'; }
       });
     </script>

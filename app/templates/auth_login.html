@@ -5,6 +5,16 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Log in</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+      (function(){
+        var host = location.hostname;
+        var prod = host !== 'localhost' && host !== '127.0.0.1';
+        if(prod){
+          window.va = window.va || function(){ (window.vaq = window.vaq || []).push(arguments); };
+          var s = document.createElement('script'); s.defer = true; s.src = '/_vercel/insights/script.js'; document.head.appendChild(s);
+        }
+      })();
+    </script>
   </head>
   <body class="p-6 bg-gray-50">
     <div class="max-w-xl mx-auto bg-white rounded-xl shadow p-6">
@@ -36,6 +46,7 @@
           const keep = document.getElementById('keep').checked;
           if(keep){ localStorage.setItem('jwt_token', res.json.token); document.cookie = `jwt_token=${res.json.token}; path=/; Max-Age=${30*24*3600}`; }
           else { sessionStorage.setItem('jwt_token', res.json.token); document.cookie = `jwt_token=${res.json.token}; path=/`; }
+          try{ if(window.va){ window.va('event', { name: 'login', data: { provider: 'email' } }); } }catch(e){}
           window.location.href = '/';
         } else {
           if(res.status === 404){ s.textContent = '账号不存在'; }

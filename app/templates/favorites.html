@@ -5,6 +5,16 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>My Favorites</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+      (function(){
+        var host = location.hostname;
+        var prod = host !== 'localhost' && host !== '127.0.0.1';
+        if(prod){
+          window.va = window.va || function(){ (window.vaq = window.vaq || []).push(arguments); };
+          var s = document.createElement('script'); s.defer = true; s.src = '/_vercel/insights/script.js'; document.head.appendChild(s);
+        }
+      })();
+    </script>
   </head>
   <body class="p-6 bg-gray-50">
     <div class="w-full flex items-center justify-between mb-4">
