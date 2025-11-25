@@ -9,7 +9,7 @@ import secrets
 import requests
 from .utils_cfg import get_cfg
 from .utils_jwt import create_token, decode_token
-from .repo_auth import upsert_user, get_user_by_email, insert_code, verify_code, insert_auth_event, insert_page_visit
+from .repo_auth import upsert_user, get_user_by_email, insert_code, verify_code, insert_auth_event, insert_page_visit, add_favorite, remove_favorite, check_favorite, list_favorites
 
 router = APIRouter()
 
@@ -29,6 +29,10 @@ class RegisterBody(BaseModel):
 class LoginBody(BaseModel):
     email: str
     password: str
+
+class FavoriteBody(BaseModel):
+    language: str
+    word: str
 
 def _valid_email(e: str) -> bool:
     return bool(re.match(r"^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$", e))
@@ -207,3 +211,63 @@ def me(request: Request):
         if data:
             return JSONResponse(status_code=200, content={"user": {"email": data.get("email"), "provider": data.get("provider")}})
     return JSONResponse(status_code=401, content={"error": "unauthorized"})
+
+def _auth_context(request: Request):
+    auth = request.headers.get("Authorization") or ""
+    parts = auth.split()
+    if len(parts) == 2 and parts[0].lower() == "bearer":
+        data = decode_token(parts[1])
+        if data:
+            return data
+    tok = request.cookies.get("jwt_token") or ""
+    if tok:
+        data = decode_token(tok)
+        if data:
+            return data
+    return None
+
+@router.post("/favorite")
+def add_fav(request: Request, body: FavoriteBody):
+    data = _auth_context(request)
+    if not data:
+        return JSONResponse(status_code=401, content={"error": "unauthorized"})
+    user_id = data.get("sub")
+    email = data.get("email") or ""
+    provider = data.get("provider") or ""
+    ok = add_favorite(user_id, email, provider, body.language.strip(), body.word.strip().lower())
+    insert_page_visit(path="/favorite", method="POST", email=email, user_id=user_id, provider=provider, ip=request.client.host if request.client else None, user_agent=request.headers.get("User-Agent"), action_type="favorite", action_content=f"{body.language}:{body.word.strip().lower()}")
+    if not ok:
+        return JSONResponse(status_code=500, content={"error": "favorite failed"})
+    return JSONResponse(status_code=200, content={"ok": True})
+
+@router.delete("/favorite")
+def del_fav(request: Request, body: FavoriteBody):
+    data = _auth_context(request)
+    if not data:
+        return JSONResponse(status_code=401, content={"error": "unauthorized"})
+    user_id = data.get("sub")
+    email = data.get("email") or ""
+    provider = data.get("provider") or ""
+    ok = remove_favorite(user_id, body.language.strip(), body.word.strip().lower())
+    insert_page_visit(path="/favorite", method="DELETE", email=email, user_id=user_id, provider=provider, ip=request.client.host if request.client else None, user_agent=request.headers.get("User-Agent"), action_type="favorite", action_content=f"{body.language}:{body.word.strip().lower()}" )
+    if not ok:
+        return JSONResponse(status_code=500, content={"error": "unfavorite failed"})
+    return JSONResponse(status_code=200, content={"ok": True})
+
+@router.get("/favorite/status/{language}/{word}")
+def fav_status(request: Request, language: str, word: str):
+    data = _auth_context(request)
+    if not data:
+        return JSONResponse(status_code=200, content={"favorited": False})
+    user_id = data.get("sub")
+    ok = check_favorite(user_id, language.strip(), word.strip().lower())
+    return JSONResponse(status_code=200, content={"favorited": ok})
+
+@router.get("/favorites/list")
+def fav_list(request: Request):
+    data = _auth_context(request)
+    if not data:
+        return JSONResponse(status_code=401, content={"error": "unauthorized"})
+    user_id = data.get("sub")
+    items = list_favorites(user_id)
+    return JSONResponse(status_code=200, content={"items": items})

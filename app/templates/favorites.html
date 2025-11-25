@@ -1,0 +1,66 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>My Favorites</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+  </head>
+  <body class="p-6 bg-gray-50">
+    <div class="w-full flex items-center justify-between mb-4">
+      <div class="flex items-center gap-2">
+        <a href="/" class="text-xl font-bold">Cambridge Dictionary</a>
+      </div>
+      <div class="flex items-center gap-3">
+        <a href="/" class="px-3 py-2 bg-purple-500 text-white rounded">Home</a>
+      </div>
+    </div>
+    <div class="max-w-2xl mx-auto bg-white rounded-xl shadow p-6">
+      <div class="mb-4 text-2xl font-semibold">My Favorites</div>
+      <div id="status" class="text-sm text-gray-600 mb-3"></div>
+      <div id="list" class="grid gap-2"></div>
+    </div>
+    <script>
+      async function loadFavorites(){
+        const r = await fetch('/favorites/list');
+        const s = document.getElementById('status');
+        const listEl = document.getElementById('list');
+        if(!r.ok){ s.textContent = 'Please log in'; listEl.innerHTML=''; return; }
+        const js = await r.json();
+        const items = (js.items || []);
+        if(items.length === 0){ listEl.innerHTML = '<div class="text-gray-600">Empty</div>'; return; }
+        const enriched = [];
+        for (const it of items) {
+          const lang = it.language || '';
+          const word = (it.word || '').toLowerCase();
+          try {
+            const rr = await fetch(`/api/dictionary/${encodeURIComponent(lang)}/${encodeURIComponent(word)}`);
+            let defs = [];
+            if (rr.ok) {
+              const data = await rr.json();
+              defs = (data.definition || []).slice(0, 3).map(d => ({ text: d.text || '', level: d.level || '', translation: d.translation || '', pos: d.pos || '' }));
+            }
+            enriched.push({ lang, word, at: it.created_at || '', defs });
+          } catch(e) {
+            enriched.push({ lang, word, at: it.created_at || '', defs: [] });
+          }
+        }
+        listEl.innerHTML = enriched.map(it => {
+          const defsLine = (it.defs || []).map(d => {
+            const level = d.level ? `<span class="inline-block bg-yellow-200 text-yellow-900 px-2 py-0.5 rounded mr-1 text-xs align-middle">${d.level}</span>` : '';
+            const pos = d.pos ? `<span class="inline-block bg-purple-100 text-purple-900 px-2 py-0.5 rounded mr-1 text-xs align-middle">${d.pos}</span>` : '';
+            const text = d.text || '';
+            const trans = d.translation ? `<span class="ml-2 text-green-700">${d.translation}</span>` : '';
+            return `<span class="inline-block mr-3">${level}${pos}${text}${trans}</span>`;
+          }).join('');
+          const href = `/?lang=${encodeURIComponent(it.lang)}&word=${encodeURIComponent(it.word)}`;
+          return `<a href="${href}" class="p-3 border rounded block hover:bg-purple-50">
+            <div class="font-semibold text-lg">${it.word}</div>
+            <div class="mt-1 text-sm">${defsLine || '<span class="text-gray-500">No summary</span>'}</div>
+          </a>`;
+        }).join('');
+      }
+      loadFavorites();
+    </script>
+  </body>
+</html>

@@ -139,6 +139,53 @@ def insert_user_action(email: str | None = None, user_id: str | None = None, pro
     base = _rest_base()
     if not base:
         return False
+
+# Favorites storage via Supabase REST
+def add_favorite(user_id: str, email: str, provider: str, language: str, word: str) -> bool:
+    base = _rest_base()
+    if not base:
+        return False
+    payload = {"user_id": user_id, "email": email, "provider": provider, "language": language, "word": word}
+    try:
+        r = requests.post(base + "/favorites", headers=_headers(), params={"on_conflict": "user_id,language,word"}, json=payload, timeout=10)
+        return r.status_code in (200, 201, 204)
+    except Exception:
+        return False
+
+def remove_favorite(user_id: str, language: str, word: str) -> bool:
+    base = _rest_base()
+    if not base:
+        return False
+    try:
+        r = requests.delete(base + "/favorites", headers=_headers(), params={"user_id": f"eq.{user_id}", "language": f"eq.{language}", "word": f"eq.{word}"}, timeout=10)
+        return r.status_code in (200, 204)
+    except Exception:
+        return False
+
+def check_favorite(user_id: str, language: str, word: str) -> bool:
+    base = _rest_base()
+    if not base:
+        return False
+    try:
+        r = requests.get(base + "/favorites", headers=_headers(), params={"user_id": f"eq.{user_id}", "language": f"eq.{language}", "word": f"eq.{word}", "select": "id"}, timeout=10)
+        if r.status_code != 200:
+            return False
+        rows = r.json() or []
+        return len(rows) > 0
+    except Exception:
+        return False
+
+def list_favorites(user_id: str) -> list[Dict[str, Any]]:
+    base = _rest_base()
+    if not base:
+        return []
+    try:
+        r = requests.get(base + "/favorites", headers=_headers(), params={"user_id": f"eq.{user_id}", "order": "created_at.asc"}, timeout=10)
+        if r.status_code != 200:
+            return []
+        return r.json() or []
+    except Exception:
+        return []
     payload: Dict[str, Any] = {
         "email": (email or ""),
         "provider": (provider or ""),

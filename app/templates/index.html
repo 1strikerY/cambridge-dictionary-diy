@@ -108,7 +108,7 @@
           const data = await r.json();
           authState.email = (data.user && data.user.email) || '';
           authState.provider = (data.user && data.user.provider) || '';
-          el.innerHTML = `<span class="px-3 py-2 bg-gray-200 rounded">${authState.email || 'User'}</span><button id="logoutBtn" class="px-3 py-2 bg-gray-800 text-white rounded">Log out</button>`;
+          el.innerHTML = `<a href="/favorites" class="px-3 py-2 bg-yellow-400 text-black rounded" title="My">My</a><span class="px-3 py-2 bg-gray-200 rounded">${authState.email || 'User'}</span><button id="logoutBtn" class="px-3 py-2 bg-gray-800 text-white rounded">Log out</button>`;
           document.getElementById('logoutBtn').addEventListener('click', ()=>{ setToken(''); location.reload(); });
         }catch(e){ setToken(''); el.innerHTML = '<a href="/login" class="px-3 py-2 bg-teal-500 text-white rounded">Log in</a><a href="/signup" class="px-3 py-2 bg-blue-600 text-white rounded">Sign up</a>'; }
       }
@@ -127,12 +127,17 @@
             ${exs ? `<ul class="mt-2 list-disc list-inside">${exs}</ul>`:''}
           </div>`;
         }).join('');
+        const lang = document.getElementById('lang').value;
+        const word = data.word || '';
+        const favId = `fav-${lang}-${word}`;
+        function favStar(filled){ return `<button id="${favId}" class="ml-2 px-2 py-1 ${filled? 'bg-yellow-300 text-yellow-900':'bg-gray-100'} rounded" title="Favorite">${filled? '★':'☆'}</button>`; }
         resultEl.innerHTML = `<div class="bg-white p-5 rounded-xl shadow">
-          <div class="text-3xl font-bold mb-2">${data.word || ''}</div>
+          <div class="text-3xl font-bold mb-2">${word}${favStar(false)}</div>
           <div class="mb-3">${posChips}</div>
           <div class="mb-3">${prons}</div>
           ${defs}
         </div>`;
+        setupFavorite(lang, word, favId);
       }
       function renderCnEn(data) {
         const groups = {};
@@ -173,10 +178,15 @@
             ${defs}
           </div>`;
         }).join('');
+        const lang = document.getElementById('lang').value;
+        const word = data.word || '';
+        const favId = `fav-${lang}-${word}`;
+        function favStar(filled){ return `<button id="${favId}" class="ml-2 px-2 py-1 ${filled? 'bg-yellow-300 text-yellow-900':'bg-gray-100'} rounded" title="Favorite">${filled? '★':'☆'}</button>`; }
         resultEl.innerHTML = `<div class="bg-white p-5 rounded-xl shadow">
-          <div class="text-3xl font-bold mb-4">${data.word || ''}</div>
+          <div class="text-3xl font-bold mb-4">${word}${favStar(false)}</div>
           ${blocks || '<div class="text-gray-600">No items</div>'}
         </div>`;
+        setupFavorite(lang, word, favId);
       }
       async function search() {
         const lang = document.getElementById('lang').value;
@@ -203,6 +213,46 @@
         }
       }
       document.getElementById('searchBtn').addEventListener('click', search);
+      (function initFromQuery(){
+        const p = new URLSearchParams(location.search);
+        const qLang = p.get('lang');
+        const qWord = p.get('word');
+        if(qLang) document.getElementById('lang').value = qLang;
+        if(qWord) document.getElementById('word').value = qWord;
+        if(qLang && qWord){ search(); }
+        const pf = localStorage.getItem('pending_fav');
+        if(pf){
+          try{
+            const {lang, word} = JSON.parse(pf);
+            if((localStorage.getItem('jwt_token') || sessionStorage.getItem('jwt_token'))){
+              fetch('/favorite', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({language: lang, word})}).finally(()=>{ localStorage.removeItem('pending_fav'); });
+            }
+          }catch(e){ localStorage.removeItem('pending_fav'); }
+        }
+      })();
+
+      async function setupFavorite(lang, word, favId){
+        try{
+          const r = await fetch(`/favorite/status/${encodeURIComponent(lang)}/${encodeURIComponent(word)}`);
+          const js = await r.json();
+          const btn = document.getElementById(favId);
+          if(js && js.favorited){ btn.textContent='★'; btn.className='ml-2 px-2 py-1 bg-yellow-300 text-yellow-900 rounded'; }
+          btn.addEventListener('click', async ()=>{
+            const token = authState.token || (localStorage.getItem('jwt_token') || sessionStorage.getItem('jwt_token') || '');
+            if(!token){
+              localStorage.setItem('pending_fav', JSON.stringify({lang, word}));
+              location.href = `/login?redirect=${encodeURIComponent(location.pathname + location.search)}`;
+              return;
+            }
+            const filled = btn.textContent === '★';
+            const method = filled? 'DELETE':'POST';
+            const rr = await fetch('/favorite', {method, headers:{'Content-Type':'application/json'}, body: JSON.stringify({language: lang, word})});
+            if(rr.ok){
+              const sFilled = !filled; btn.textContent = sFilled? '★':'☆'; btn.className = sFilled? 'ml-2 px-2 py-1 bg-yellow-300 text-yellow-900 rounded':'ml-2 px-2 py-1 bg-gray-100 rounded';
+            }
+          });
+        }catch(e){ /* ignore */ }
+      }
 
       // Auth modal removed; use dedicated pages /login and /signup
     </script>

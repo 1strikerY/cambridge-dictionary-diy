@@ -108,6 +108,33 @@ def vite_client_stub_encoded():
     return HTMLResponse(content="", status_code=200)
 
 
+@app.get('/favorites')
+def favorites_page(request: Request):
+    try:
+        auth = request.headers.get("Authorization") or ""
+        parts = auth.split()
+        email = None
+        user_id = None
+        provider = None
+        if len(parts) == 2 and parts[0].lower() == "bearer":
+            data = decode_token(parts[1])
+            if data:
+                email = data.get("email")
+                user_id = data.get("sub")
+                provider = data.get("provider")
+        if not user_id:
+            tok = request.cookies.get("jwt_token") or ""
+            if tok:
+                data = decode_token(tok)
+                if data:
+                    email = data.get("email")
+                    user_id = data.get("sub")
+                    provider = data.get("provider")
+        insert_page_visit(path="/favorites", method="GET", email=email, user_id=user_id, provider=provider, ip=request.client.host if request.client else None, user_agent=request.headers.get("User-Agent"), action_type="other", action_content="")
+    except Exception:
+        pass
+    return render_template('favorites.html')
+
 @app.get("/", response_class=HTMLResponse)
 def root(request: Request) -> Response:
     here = os.path.dirname(os.path.abspath(__file__))
